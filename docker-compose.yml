@@ -1,0 +1,10 @@
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - 8080:80
+      - 443:443
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: example
