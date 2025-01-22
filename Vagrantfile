@@ -17,21 +17,32 @@ Vagrant.configure("2") do |config|
         v.vmx["numvcpus"] = "1"
       end
 
-      node.vm.provision "shell", inline: <<-SHELL
-        # Faire en sorte que les machines puissent communiquer entre elles via leur hostnames (exemple: ping worker1 depuis manager1)
-        #{NODES.map{ |n_name, ip| "echo '#{ip} #{n_name}' | sudo tee -a /etc/hosts\n"}.join}
+      if defined? ENV["VAGRANT_SSH_PUB_KEY"] == nil
+        ENV["VAGRANT_SSH_PUB_KEY"] = "#{Dir.home}/.ssh/id_ed25519.pub"
+      end
 
-        # Installer Docker
-        curl -fsSL get.docker.com -o get-docker.sh
-        CHANNEL=stable sh get-docker.sh
-        rm get-docker.sh
+      ssh_pub_key = File.readlines(ENV["VAGRANT_SSH_PUB_KEY"]).first.strip
+      node.vm.provision "SSH_KEY", type: "shell",
+        inline: <<-SHELL
+          echo #{ssh_pub_key} >> /home/vagrant/.ssh/authorized_keys
+        SHELL
 
-        # Faire en sorte que le daemon Docker soit accessible depuis l'hôte
-        sudo mkdir -p /etc/systemd/system/docker.service.d
-        sudo bash -c 'echo -e "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375" > /etc/systemd/system/docker.service.d/options.conf'
-        sudo systemctl daemon-reload
-        sudo systemctl restart docker.service
-      SHELL
+      node.vm.provision "Docker Daemon", type: "shell",
+        inline: <<-SHELL
+          # Faire en sorte que les machines puissent communiquer entre elles via leur hostnames (exemple: ping worker1 depuis manager1)
+          #{NODES.map{ |n_name, ip| "echo '#{ip} #{n_name}' | sudo tee -a /etc/hosts\n"}.join}
+
+          # Installer Docker
+          curl -fsSL get.docker.com -o get-docker.sh
+          CHANNEL=stable sh get-docker.sh
+          rm get-docker.sh
+
+          # Faire en sorte que le daemon Docker soit accessible depuis l'hôte
+          sudo mkdir -p /etc/systemd/system/docker.service.d
+          sudo bash -c 'echo -e "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375" > /etc/systemd/system/docker.service.d/options.conf'
+          sudo systemctl daemon-reload
+          sudo systemctl restart docker.service
+        SHELL
 
       node.vm.provision "docker" do |d|
         d.pull_images "alpine:latest"
