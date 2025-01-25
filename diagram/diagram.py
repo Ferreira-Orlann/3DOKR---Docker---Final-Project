@@ -1,0 +1,2 @@
+from diagrams import Diagram
+
