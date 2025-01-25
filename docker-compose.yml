@@ -3,7 +3,7 @@ services:
   web-result:
     build: 
       context: ./result
-      target: ./result/Dockerfile
+      target: ./result/docker-compose.yml
     deploy:
       deploy:
       mode: replicated
