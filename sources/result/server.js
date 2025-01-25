@@ -90,3 +90,14 @@ server.listen(port, function () {
   const port = server.address().port
   console.log("App running on port " + port)
 })
+
+async function closeGracefully(signal) {
+  console.log(`Received signal to terminate: ${signal}`)
+
+  await server.close()
+  await pool.end()
+
+  process.exit()
+}
+process.on('SIGINT', closeGracefully)
+process.on('SIGTERM', closeGracefully)
