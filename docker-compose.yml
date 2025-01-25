@@ -1,4 +1,25 @@
 services:
+  redis:
+  web-result:
+    build: 
+      context: ./result
+      target: ./result/Dockerfile
+    deploy:
+      deploy:
+      mode: replicated
+      replicas: 2
+      # endpoint_mode: vip
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1 
+        delay: 10s
+        order: stop-first
+  web-vote:
+  dotnet-worker:
   web:
     image: nginx:latest
     ports:
@@ -8,3 +29,13 @@ services:
     image: postgres:latest
     environment:
       POSTGRES_PASSWORD: example
+
+networks:
+  external:
+    driver: overlay
+  web:
+    driver: overlay
+  db:
+    driver: overlay
+  monitoring:
+    driver: overlay
