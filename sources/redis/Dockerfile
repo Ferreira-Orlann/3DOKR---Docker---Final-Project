@@ -1,0 +1,2 @@
+FROM redis:7.4-alpine@sha256:1bf97f21f01b0e7bd4b7b34a26d3b9d8086e41e70c10f262e8a9e0b49b5116a0
+USER redis

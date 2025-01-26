@@ -5,7 +5,7 @@ WORKDIR /usr/local/result
 COPY package*.json /usr/local/result
 RUN npm ci --omit=dev
 
-FROM node:18-alpine3.21@sha256:974afb6cbc0314dc6502b14243b8a39fbb2d04d975e9059dd066be3e274fbb25 as prod
+FROM node:18-alpine3.21@sha256:974afb6cbc0314dc6502b14243b8a39fbb2d04d975e9059dd066be3e274fbb25 AS prod
 # Node.js doesn't support running as PID 1
 RUN apk add dumb-init 
 # Set environement variable for performance (express: https://expressjs.com/fr/advanced/best-practice-performance.html)

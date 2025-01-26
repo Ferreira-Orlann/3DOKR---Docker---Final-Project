@@ -49,6 +49,19 @@ Vagrant.configure("2") do |config|
         SHELL
       end
 
+      if defined? ENV["DOCKER_REGISTRY_URL"]
+        docker_registry_username = ENV["DOCKER_REGISTRY_USERNAME"]
+        docker_registry_password = ENV["DOCKER_REGISTRY_PASSWORD"]
+        docker_registry_url = ENV["DOCKER_REGISTRY_URL"]
+        node.vm.provision "Docker Regsitry", type: "shell", after: "Docker Daemon Install",
+          inline: <<-SHELL
+            docker login
+              --username=#{docker_registry_username}
+              --password=#{docker_registry_password}
+              #{docker_registry_url}
+          SHELL
+      end
+
       node.vm.provision "docker" do |d|
         d.pull_images "alpine:latest"
       end

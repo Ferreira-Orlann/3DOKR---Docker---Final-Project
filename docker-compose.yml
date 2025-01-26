@@ -1,14 +1,22 @@
 services:
-  redis:
+  registry:
+    image: registry:2
+    ports:
+    - "5000:5000"
+    environment:
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /usr/local/docker-registry
+    volumes:
+      - docker-registry:/usr/local/docker-registry
   web-result:
+    image: registry:5000/web-result
     build: 
-      context: ./result
-      target: ./result/docker-compose.yml
+      context: ./sources/result
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8888"
     deploy:
-      deploy:
       mode: replicated
       replicas: 2
-      # endpoint_mode: vip
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -18,24 +26,132 @@ services:
         parallelism: 1 
         delay: 10s
         order: stop-first
-  web-vote:
-  dotnet-worker:
-  web:
-    image: nginx:latest
-    ports:
-      - 8080:80
-      - 443:443
-  db:
-    image: postgres:latest
     environment:
-      POSTGRES_PASSWORD: example
-
+      - NODE_ENV=production
+    networks:
+      - clients
+      - internal
+    depends_on:
+      - postgres
+      - redis
+      - registry
+  web-vote:
+    image: registry:5000/web-vote
+    build: 
+      context: ./sources/vote
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1 
+        delay: 10s
+        order: stop-first
+    networks:
+      - clients
+      - internal
+    depends_on:
+      - postgres
+      - redis
+      - registry
+  dotnet-worker:
+    image: registry:5000/dotnet-worker
+    build: 
+      context: ./sources/worker
+      dockerfile: Dockerfile
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1 
+        delay: 10s
+        order: stop-first
+    networks:
+      - worker
+    depends_on:
+      - postgres
+      - redis
+      - registry
+  postgres:
+    image: registry:5000/postgres-custom
+    build: 
+      context: ./sources/postgres
+      dockerfile: Dockerfile
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - node.role == manager
+    depends_on:
+      - registry
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    networks:
+      - clients
+      - internal
+      - worker
+  redis:
+    image: registry:5000/redis-custom
+    build: 
+      context: ./sources/redis
+      dockerfile: Dockerfile
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data	
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - clients
+      - internal
+      - worker
+    depends_on:
+      - registry
 networks:
-  external:
+  clients:
     driver: overlay
-  web:
+    internal: true
+  internal:
     driver: overlay
-  db:
+    internal: true
+  worker:
     driver: overlay
-  monitoring:
-    driver: overlay
+    internal: true
+  
+volumes:
+  postgres-data:
+  redis_data:
+  docker-registry:
