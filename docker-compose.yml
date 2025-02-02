@@ -1,19 +1,13 @@
 services:
-  registry:
-    image: registry:2
-    ports:
-    - "5000:5000"
-    environment:
-      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /usr/local/docker-registry
-    volumes:
-      - docker-registry:/usr/local/docker-registry
   web-result:
-    image: registry:5000/web-result
+    image: ssoras/public:web-result
+    ports:
+      - target: 8888
+        published: 8888
+        protocol: tcp
     build: 
       context: ./sources/result
       dockerfile: Dockerfile
-    ports:
-      - "8888:8888"
     deploy:
       mode: replicated
       replicas: 2
@@ -34,14 +28,15 @@ services:
     depends_on:
       - postgres
       - redis
-      - registry
   web-vote:
-    image: registry:5000/web-vote
+    image: ssoras/public:web-vote
     build: 
       context: ./sources/vote
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - target: 8080
+        published: 8080
+        protocol: tcp
     deploy:
       mode: replicated
       replicas: 2
@@ -60,9 +55,8 @@ services:
     depends_on:
       - postgres
       - redis
-      - registry
   dotnet-worker:
-    image: registry:5000/dotnet-worker
+    image: ssoras/public:dotnet-worker
     build: 
       context: ./sources/worker
       dockerfile: Dockerfile
@@ -83,14 +77,11 @@ services:
     depends_on:
       - postgres
       - redis
-      - registry
   postgres:
-    image: registry:5000/postgres-custom
+    image: ssoras/public:postgres-custom
     build: 
       context: ./sources/postgres
       dockerfile: Dockerfile
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     deploy:
@@ -104,8 +95,6 @@ services:
       placement:
         constraints:
           - node.role == manager
-    depends_on:
-      - registry
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -115,12 +104,10 @@ services:
       - internal
       - worker
   redis:
-    image: registry:5000/redis-custom
+    image: ssoras/public:redis-custom
     build: 
       context: ./sources/redis
       dockerfile: Dockerfile
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data	
     deploy:
@@ -138,8 +125,6 @@ services:
       - clients
       - internal
       - worker
-    depends_on:
-      - registry
 networks:
   clients:
     driver: overlay
@@ -154,4 +139,3 @@ networks:
 volumes:
   postgres-data:
   redis_data:
-  docker-registry:
