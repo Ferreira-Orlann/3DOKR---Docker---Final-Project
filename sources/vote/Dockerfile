@@ -6,8 +6,6 @@ RUN pip install  -r requirements.txt
 
 FROM python:3.11-alpine@sha256:9af3561825050da182afc74b106388af570b99c500a69c8216263aa245a2001b
 
-RUN apk add --no-cache dumb-init
-
 RUN adduser --disabled-password --no-create-home appuser
 USER appuser
 
