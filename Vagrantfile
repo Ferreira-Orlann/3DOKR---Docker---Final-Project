@@ -1,7 +1,7 @@
 NODES = [
 	["manager1", "192.168.189.100", "manager"],
-	["worker1", "192.168.189.101", "worker"],
-	["worker2", "192.168.189.102", "worker"],
+	["manager2", "192.168.189.101", "manager"],
+	["manager3", "192.168.189.102", "manager"],
 ]
 
 Vagrant.configure("2") do |config|

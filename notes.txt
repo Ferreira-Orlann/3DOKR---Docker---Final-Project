@@ -1,0 +1,32 @@
+-- MANAGER1 --
+sudo docker swarm init --advertise-addr 192.168.189.100
+sudo docker swarm join-token manager
+
+-- MANAGER1 & MANAGER2 --
+docker swarm join --token <<TOKEN>> 192.168.189.100:2377
+
+-- EACH --
+sudo apt install glusterfs-server
+sudo systemctl enable --now glusterd
+sudo mkdir -p /var/local/stack-data
+
+-- MANAGER 1 --
+sudo gluster peer probe manager1
+sudo gluster peer probe manager2
+sudo gluster peer probe manager3
+sudo gluster volume create stack-data replica 3 manager1:/var/local/stack-data manager2:/var/local/stack-data manager3:/var/local/stack-data force
+
+sudo gluster volume set stack-data performance.stat-prefetch off
+sudo gluster volume set stack-data performance.read-ahead off
+sudo gluster volume set stack-data performance.write-behind off
+sudo gluster volume set stack-data performance.readdir-ahead off
+sudo gluster volume set stack-data performance.io-cache off
+sudo gluster volume set stack-data performance.quick-read off
+sudo gluster volume set stack-data performance.open-behind off
+sudo gluster volume set stack-data performance.strict-o-direct on
+
+sudo gluster volume start stack-data
+
+-- EACH --
+sudo docker plugin install --alias gluster-stack-data chrisbecke/glusterfs-volume GFS_VOLUME=stack-data GFS_SERVERS=manager1,manager2,manager3
+sudo docker plugin enable gluster-stack-data

@@ -12,7 +12,7 @@ services:
       mode: replicated
       replicas: 2
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
         max_attempts: 3
         window: 120s
@@ -26,6 +26,7 @@ services:
       - clients
       - internal
     depends_on:
+      - dotnet-worker
       - postgres
       - redis
   web-vote:
@@ -41,7 +42,7 @@ services:
       mode: replicated
       replicas: 2
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
         max_attempts: 3
         window: 120s
@@ -53,6 +54,7 @@ services:
       - clients
       - internal
     depends_on:
+      - dotnet-worker
       - postgres
       - redis
   dotnet-worker:
@@ -64,7 +66,7 @@ services:
       mode: replicated
       replicas: 2
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
         max_attempts: 3
         window: 120s
@@ -79,22 +81,25 @@ services:
       - redis
   postgres:
     image: ssoras/public:postgres-custom
+    ports:
+      - "10000:10000"
     build: 
       context: ./sources/postgres
       dockerfile: Dockerfile
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - type: volume
+        source: data
+        target: /var/lib/postgresql/data
+        volume:
+          subpath: postgres
     deploy:
       mode: replicated
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
         max_attempts: 3
         window: 120s
-      placement:
-        constraints:
-          - node.role == manager
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -109,18 +114,19 @@ services:
       context: ./sources/redis
       dockerfile: Dockerfile
     volumes:
-      - redis_data:/data	
+      - type: volume
+        source: data
+        target: /data
+        volume:
+          subpath: redis
     deploy:
       mode: replicated
       replicas: 1
       restart_policy:
-        condition: on-failure
-        delay: 5s
+        condition: any
+        delay: 15s
         max_attempts: 3
         window: 120s
-      placement:
-        constraints:
-          - node.role == manager
     networks:
       - clients
       - internal
@@ -137,5 +143,5 @@ networks:
     internal: true
   
 volumes:
-  postgres-data:
-  redis_data:
+  data:
+    driver: gluster-stack-data
