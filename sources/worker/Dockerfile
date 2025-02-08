@@ -9,6 +9,7 @@ RUN dotnet restore
 
 FROM restore AS build
 WORKDIR /tmp/build
+
 COPY . .
 
 # Compile and publish the application in Release mode
