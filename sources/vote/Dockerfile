@@ -10,8 +10,7 @@ USER appuser
 
 WORKDIR /code
 
-COPY --from=build /code /code
-COPY --from=build /code /code
+COPY --from=build . .
 
 
 EXPOSE 8080
