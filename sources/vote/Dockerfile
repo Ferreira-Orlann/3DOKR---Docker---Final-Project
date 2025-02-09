@@ -7,9 +7,6 @@ WORKDIR /vote
 COPY requirements.txt requirements.txt
 RUN pip install --user -r requirements.txt 
 
-# Copier le reste de l'application
-COPY . .
-
 RUN adduser --disabled-password appuser
 
 USER appuser
