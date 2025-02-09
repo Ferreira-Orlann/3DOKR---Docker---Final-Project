@@ -21,7 +21,7 @@ services:
         delay: 10s
         order: stop-first
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
     networks:
       - clients
       - internal
@@ -100,10 +100,18 @@ services:
         delay: 5s
         max_attempts: 3
         window: 120s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "postgres"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: /run/secrets/postgres_password
+      POSTGRES_DB: postgres
+    secrets:
+      - postgres_password
     networks:
       - clients
       - internal
@@ -131,6 +139,11 @@ services:
       - clients
       - internal
       - worker
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
 networks:
   clients:
     driver: overlay
@@ -145,3 +158,9 @@ networks:
 volumes:
   data:
     driver: gluster-stack-data
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt

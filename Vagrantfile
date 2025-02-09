@@ -30,7 +30,7 @@ Vagrant.configure("2") do |config|
 					echo #{ssh_pub_key} >> /home/vagrant/.ssh/authorized_keys
 				SHELL
 
-			node.vm.provision "Docker Daemon Install", type: "shell",
+			node.vm.provision "Docker Install and /etc/hosts", type: "shell",
 				inline: <<-SHELL
 					# Faire en sorte que les machines puissent communiquer entre elles via leur hostnames (exemple: ping worker1 depuis manager1)
 					#{NODES.map{ |n_name, ip| "echo '#{ip} #{n_name}' | sudo tee -a /etc/hosts\n"}.join}
@@ -39,37 +39,63 @@ Vagrant.configure("2") do |config|
 					curl -fsSL get.docker.com -o get-docker.sh
 					CHANNEL=stable sh get-docker.sh
 					rm get-docker.sh
+
+					(exit 0); sudo docker plugin install --grant-all-permissions --alias gluster-stack-data chrisbecke/glusterfs-volume GFS_VOLUME=stack-data GFS_SERVERS=manager1,manager2,manager3
+					sudo docker plugin enable gluster-stack-data
 				SHELL
 			
-			vagrant_docker_unsafe = ENV["VAGRANT_DOCKER_UNSAGE"] || "false"
-			if vagrant_docker_unsafe != "false" 
-				node.vm.provision "Docker Daemon API", type: "shell", after: "Docker Daemon Install",
+			node.vm.provision "Gluster FS Init", type: "shell",
 				inline: <<-SHELL
-					# Faire en sorte que le daemon Docker soit accessible depuis l'hôte
-					sudo mkdir -p /etc/systemd/system/docker.service.d
-					sudo bash -c 'echo -e "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375" > /etc/systemd/system/docker.service.d/options.conf'
-					sudo systemctl daemon-reload
-					sudo systemctl restart docker.service
+					sudo apt install glusterfs-server
+					sudo systemctl enable --now glusterd
+					sudo mkdir -p /var/local/stack-data
 				SHELL
-			end
-
-			# Don't Work
-			docker_registry_url = ENV["DOCKER_REGISTRY_URL"] || "false"
-			if docker_registry_url != "false"
-				docker_registry_username = ENV["DOCKER_REGISTRY_USERNAME"]
-				docker_registry_password = ENV["DOCKER_REGISTRY_PASSWORD"]  
-				node.vm.provision "Docker Regsitry", type: "shell", after: "Docker Daemon Install",
-					inline: <<-SHELL
-						echo #{docker_registry_password} | docker login \
-							--username=#{docker_registry_username}
-							--password-stdin
-							#{docker_registry_url}
-					SHELL
-			end
-
-			node.vm.provision "docker" do |d|
-				d.pull_images "alpine:latest"
-			end
 		end
+	end
+
+	config.vm.define "manager1" do |vm| 
+		vm.vm.provision "Docker Swarm Init and GlusterFS Volume Create", type: "shell",
+				inline: <<-SHELL
+					docker swarm init --advertise-addr #{NODES[0][1]}
+					sudo docker swarm join-token manager > /vagrant/docker-token.txt
+
+					sudo gluster peer probe manager1
+					sudo gluster peer probe manager2
+					sudo gluster peer probe manager3
+					sudo gluster volume create stack-data replica 3 manager1:/var/local/stack-data manager2:/var/local/stack-data manager3:/var/local/stack-data force
+
+					sudo gluster volume set stack-data performance.stat-prefetch off
+					sudo gluster volume set stack-data performance.read-ahead off
+					sudo gluster volume set stack-data performance.write-behind off
+					sudo gluster volume set stack-data performance.readdir-ahead off
+					sudo gluster volume set stack-data performance.io-cache off
+					sudo gluster volume set stack-data performance.quick-read off
+					sudo gluster volume set stack-data performance.open-behind off
+					sudo gluster volume set stack-data performance.strict-o-direct on
+
+					sudo gluster volume start stack-data
+				SHELL
+	end
+	
+	config.vm.define "manager2" do |vm| 
+		vm.vm.provision "Swarm Join", type: "shell",
+				inline: <<-SHELL
+					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}
+				SHELL
+	end
+
+	config.vm.define "manager3" do |vm| 
+		vm.vm.provision "Swarm Join", type: "shell",
+				inline: <<-SHELL
+					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}
+				SHELL
+	end
+
+	config.vm.define "manager1" do |vm| 
+		vm.vm.provision "Deploy Stack", type: "shell",
+				inline: <<-SHELL
+					cd /vagrant
+					docker stack deploy -c docker-compose.yml appstack
+				SHELL
 	end
 end

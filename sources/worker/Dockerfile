@@ -22,7 +22,7 @@ WORKDIR /app
 RUN apk add --no-cache dumb-init
 
 # Create a non-root user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser --disabled-password -S appuser -G appgroup
 USER appuser
 
 # Copy only the published application from the build stage
