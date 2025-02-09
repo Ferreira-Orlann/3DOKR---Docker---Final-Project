@@ -40,24 +40,46 @@ Vagrant.configure("2") do |config|
 					CHANNEL=stable sh get-docker.sh
 					rm get-docker.sh
 
-					(exit 0); sudo docker plugin install --grant-all-permissions --alias gluster-stack-data chrisbecke/glusterfs-volume GFS_VOLUME=stack-data GFS_SERVERS=manager1,manager2,manager3
-					sudo docker plugin enable gluster-stack-data
+					sudo docker plugin install --grant-all-permissions --alias gluster-stack-data chrisbecke/glusterfs-volume GFS_VOLUME=stack-data GFS_SERVERS=manager1,manager2,manager3 || exit 0 && sudo docker plugin enable gluster-stack-data
 				SHELL
 			
-			node.vm.provision "Gluster FS Init", type: "shell",
+			node.vm.provision "Gluster FS Init & Enable Plugin", type: "shell",
 				inline: <<-SHELL
-					sudo apt install glusterfs-server
+					sudo apt install -y glusterfs-server
 					sudo systemctl enable --now glusterd
 					sudo mkdir -p /var/local/stack-data
+
+					# sudo docker plugin enable gluster-stack-data
 				SHELL
 		end
 	end
 
 	config.vm.define "manager1" do |vm| 
-		vm.vm.provision "Docker Swarm Init and GlusterFS Volume Create", type: "shell",
+		vm.vm.provision "Docker Swarm Init and ", type: "shell",
 				inline: <<-SHELL
 					docker swarm init --advertise-addr #{NODES[0][1]}
-					sudo docker swarm join-token manager > /vagrant/docker-token.txt
+					sudo docker swarm join-token -q manager > /vagrant/docker-token.txt
+				SHELL
+	end
+	
+	config.vm.define "manager2" do |vm|
+		vm.vm.provision "Swarm Join", type: "shell",
+				inline: <<-SHELL
+					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}:2377
+				SHELL
+	end
+
+	config.vm.define "manager3" do |vm| 
+		vm.vm.provision "Swarm Join", type: "shell",
+				inline: <<-SHELL
+					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}:2377
+				SHELL
+	end
+
+	config.vm.define "manager3" do |vm| 
+		vm.vm.provision "GlusterFS Volume Create and Docker Stack Stack", type: "shell",
+				inline: <<-SHELL
+					cd /vagrant
 
 					sudo gluster peer probe manager1
 					sudo gluster peer probe manager2
@@ -74,28 +96,8 @@ Vagrant.configure("2") do |config|
 					sudo gluster volume set stack-data performance.strict-o-direct on
 
 					sudo gluster volume start stack-data
-				SHELL
-	end
-	
-	config.vm.define "manager2" do |vm| 
-		vm.vm.provision "Swarm Join", type: "shell",
-				inline: <<-SHELL
-					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}
-				SHELL
-	end
 
-	config.vm.define "manager3" do |vm| 
-		vm.vm.provision "Swarm Join", type: "shell",
-				inline: <<-SHELL
-					docker swarm join --token $(cat /vagrant/docker-token.txt) #{NODES[0][1]}
-				SHELL
-	end
-
-	config.vm.define "manager1" do |vm| 
-		vm.vm.provision "Deploy Stack", type: "shell",
-				inline: <<-SHELL
-					cd /vagrant
-					docker stack deploy -c docker-compose.yml appstack
+					# sudo docker stack deploy -c docker-compose.yml appstack
 				SHELL
 	end
 end

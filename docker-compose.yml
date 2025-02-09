@@ -22,13 +22,13 @@ services:
         order: stop-first
     environment:
       NODE_ENV: production
+      POSTGRES_PASSWORD: /run/secrets/postgres_password
     networks:
       - clients
       - internal
     depends_on:
       - dotnet-worker
       - postgres
-      - redis
   web-vote:
     image: ssoras/public:web-vote
     build: 
@@ -55,7 +55,6 @@ services:
       - internal
     depends_on:
       - dotnet-worker
-      - postgres
       - redis
   dotnet-worker:
     image: ssoras/public:dotnet-worker
@@ -74,6 +73,9 @@ services:
         parallelism: 1 
         delay: 10s
         order: stop-first
+    environment:
+      REDIS_PASSWORD: /run/secrets/redis_password
+      POSTGRES_PASSWORD: /run/secrets/postgres_password
     networks:
       - worker
     depends_on:
@@ -108,7 +110,7 @@ services:
       start_period: 80s
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: /run/secrets/postgres_password
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     secrets:
       - postgres_password

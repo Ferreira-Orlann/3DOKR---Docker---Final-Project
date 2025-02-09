@@ -16,6 +16,7 @@ app.logger.setLevel(logging.INFO)
 
 def get_redis():
     if not hasattr(Flask, 'redis'):
+        # Flask.redis = Redis(host="redis", db=0, socket_timeout=5, password=os.getenv("REDIS_PASSWORD", "None"))
         Flask.redis = Redis(host="redis", db=0, socket_timeout=5)
     return Flask.redis
 
